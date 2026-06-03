@@ -1,5 +1,5 @@
 {
-    "name": "bitbox",
+    "name": "vibelamp",
     "version": "0.6.15",
     "description": "NeoPixel LED control extension blocks for micro:bit with AI data parsing support",
     "license": "MIT",
