@@ -4,8 +4,7 @@
     "description": "NeoPixel LED control extension blocks for micro:bit with AI data parsing support",
     "license": "MIT",
     "dependencies": {
-        "core": "*",
-        "neopixel": "*"
+        "core": "*"
     },
     "files": [
         "README.md",
