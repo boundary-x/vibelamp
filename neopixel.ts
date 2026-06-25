@@ -40,6 +40,11 @@ enum NeoPixelMode {
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
 
+    // 🌟 핵심 해결책: 에러를 내던 구형 어셈블리 대신, 코어 시스템에 내장된 안전한 구동기로 직접 연결
+    //% shim=light::sendWS2812Buffer
+    function sendBuffer(buf: Buffer, pin: DigitalPin) {
+    }
+
     /**
      * 네오픽셀 스트립 객체
      */
@@ -136,32 +141,8 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            // 블루투스 확장과 무관하게 마이크로비트 V2에서 네오픽셀을 고속 제어하는 하드웨어 SPI 우회 기법
-            let stride = this.mode === NeoPixelMode.RGBW ? 4 : 3;
-            let len = this._length * stride;
-            let startIdx = this.start * stride;
-            
-            // 네오픽셀 1비트를 4비트의 SPI 고속 신호로 변환하기 위한 버퍼 확장 (1바이트 -> 4바이트)
-            let spiBuf = pins.createBuffer(len * 4);
-            let spiIdx = 0;
-            
-            for (let i = 0; i < len; i++) {
-                let byte = this.buffer[startIdx + i];
-                
-                // 1바이트 데이터를 2비트씩 쪼개어 정밀한 하이/로우 펄스 바이트 조합 생성
-                for (let bit = 7; bit >= 0; bit -= 2) {
-                    let b1 = ((byte >> bit) & 1) ? 0xE0 : 0x80;
-                    let b2 = ((byte >> (bit - 1)) & 1) ? 0x0E : 0x08;
-                    spiBuf[spiIdx++] = b1 | b2;
-                }
-            }
-            
-            // 현재 설정된 네오픽셀 핀을 SPI MOSI 출력 핀으로 임시 선언 (P16, P15는 더미 지정)
-            pins.spiPins(DigitalPin.P16, DigitalPin.P15, this.pin);
-            pins.spiFrequency(3200000); // 파동 정밀도를 위한 3.2MHz 타이밍 락
-            pins.spiWriteBuffer(spiBuf);
-            
-            basic.pause(0); // 데이터 래치(Reset)를 위한 최소한의 지연 시간 확보
+            // 시스템 내부에 숨겨진 마이크로비트 V2 완벽 호환 구동기를 호출
+            sendBuffer(this.buffer, this.pin);
         }
 
         /**
