@@ -40,8 +40,8 @@ enum NeoPixelMode {
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
     // V2 하드웨어 가속을 지원하는 C++ 함수로 연결 (070 에러 방지)
-    //% shim=vibeLamp::sendBuffer
-    function sendBuffer(buf: Buffer, pin: DigitalPin) {
+    //% shim=sendBufferAsm
+    export function sendBuffer(buf: Buffer, pin: DigitalPin) {
     }
 
     /**
