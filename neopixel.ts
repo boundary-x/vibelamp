@@ -39,9 +39,8 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
-    // V2 하드웨어 가속을 지원하는 C++ 함수로 연결 (070 에러 방지)
     //% shim=sendBufferAsm
-    export function sendBuffer(buf: Buffer, pin: DigitalPin) {
+    function sendBuffer(buf: Buffer, pin: DigitalPin) {
     }
 
     /**
@@ -57,10 +56,6 @@ namespace vibeLamp {
         matrixWidth: number;
         matrixChain: number;
         matrixRotation: number;
-        
-        // 070 에러(인터럽트 충돌) 방지를 위한 내부 상태 변수
-        _lastShowTime: number; 
-        _lastSolidColor: number;
 
         // ======================== 라이트 제어(기초) ========================
 
@@ -75,10 +70,6 @@ namespace vibeLamp {
         //% weight=70 blockGap=8
         showColor(rgb: number) {
             rgb = rgb >> 0;
-            // 이미 동일한 단일 색상으로 켜져있다면 하드웨어 전송 생략 (방어)
-            if (this._lastSolidColor === rgb) return;
-            this._lastSolidColor = rgb;
-
             this.setAllRGB(rgb);
             this.show();
         }
@@ -92,10 +83,6 @@ namespace vibeLamp {
         //% group="라이트 제어(기초)"
         //% weight=60 blockGap=8
         clear(): void {
-            // 이미 꺼져있다면 하드웨어 전송 생략 (방어)
-            if (this._lastSolidColor === 0) return;
-            this._lastSolidColor = 0;
-
             const stride = this.mode === NeoPixelMode.RGBW ? 4 : 3;
             this.buffer.fill(0, this.start * stride, this._length * stride);
             this.show();
@@ -138,11 +125,6 @@ namespace vibeLamp {
             strip._length = Math.clamp(0, this._length - (strip.start - this.start), length);
             strip.matrixWidth = 0;
             strip.mode = this.mode;
-            
-            // 서브 스트립에도 초기화 적용
-            strip._lastShowTime = input.runningTime(); 
-            strip._lastSolidColor = -1;
-            
             return strip;
         }
 
@@ -157,15 +139,7 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            // 너무 잦은 호출로 인한 070 블루투스 패닉 방지 (강제 20ms 쿨다운)
-            let now = input.runningTime();
-            if (now - this._lastShowTime < 20) {
-                basic.pause(20 - (now - this._lastShowTime));
-                now = input.runningTime();
-            }
-            
             sendBuffer(this.buffer, this.pin);
-            this._lastShowTime = now;
         }
 
         /**
@@ -179,7 +153,6 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=90 blockGap=8
         setPixelColor(pixelOffset: number, rgb: number): void {
-            this._lastSolidColor = -1; // 단일 색상 상태 해제
             this.setPixelRGB(pixelOffset >> 0, rgb >> 0);
         }
 
@@ -197,7 +170,6 @@ namespace vibeLamp {
         //% weight=70 blockGap=8
         showRainbow(startHue: number = 1, endHue: number = 360) {
             if (this._length <= 0) return;
-            this._lastSolidColor = -1; // 단일 색상 상태 해제
 
             startHue = startHue >> 0;
             endHue = endHue >> 0;
@@ -258,8 +230,6 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=60 blockGap=8
         showBarGraph(value: number, high: number): void {
-            this._lastSolidColor = -1; // 단일 색상 상태 해제
-            
             if (high <= 0) {
                 this.clear();
                 this.setPixelColor(0, NeoPixelColors.Yellow);
@@ -298,7 +268,6 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=50 blockGap=8
         shift(offset: number = 1): void {
-            this._lastSolidColor = -1; // 단일 색상 상태 해제
             offset = offset >> 0;
             const stride = this.mode === NeoPixelMode.RGBW ? 4 : 3;
             this.buffer.shift(-offset * stride, this.start * stride, this._length * stride);
@@ -314,7 +283,6 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=49 blockGap=8
         rotate(offset: number = 1): void {
-            this._lastSolidColor = -1; // 단일 색상 상태 해제
             offset = offset >> 0;
             const stride = this.mode === NeoPixelMode.RGBW ? 4 : 3;
             this.buffer.rotate(-offset * stride, this.start * stride, this._length * stride);
@@ -437,7 +405,7 @@ namespace vibeLamp {
     /**
      * 네오픽셀 LED 스트립을 초기화합니다.
      * @param pin 연결된 핀
-     * @param numLeds LED 개수, eg: 12
+     * @param numLeds LED 개수, eg: 24,30,60,64
      */
     //% blockId="vibelamp_create"
     //% block="%pin| 에 연결된 %numLeds| 개의 %mode| 타입 라이트"
@@ -445,8 +413,8 @@ namespace vibeLamp {
     //% weight=100 blockGap=8
     //% trackArgs=0,2
     //% blockSetVariable=strip
-    //% pin.defl=DigitalPin.P8
-    //% numLeds.defl=12
+    //% pin.defl=DigitalPin.P0
+    //% numLeds.defl=8
     export function create(pin: DigitalPin, numLeds: number, mode: NeoPixelMode): Strip {
         let strip = new Strip();
         let stride = mode === NeoPixelMode.RGBW ? 4 : 3;
@@ -455,11 +423,6 @@ namespace vibeLamp {
         strip._length = numLeds;
         strip.mode = mode || NeoPixelMode.RGB;
         strip.matrixWidth = 0;
-        
-        // 방어 변수 초기화
-        strip._lastShowTime = 0;
-        strip._lastSolidColor = -1; 
-
         strip.setBrightness(128);
         strip.setPin(pin);
         return strip;
@@ -590,6 +553,8 @@ namespace vibeLamp {
         //% block="오른쪽 눈"
         RightEye,
         //% block="기울기(Roll)"
+        Roll,
+        //% block="웃음"
         Smile,
         //% block="얼굴 감지 여부"
         Visible
@@ -658,6 +623,7 @@ namespace vibeLamp {
             case FaceDataType.Mouth:    valStr = data.substr(10, 2); break;
             case FaceDataType.LeftEye:  valStr = data.substr(12, 2); break;
             case FaceDataType.RightEye: valStr = data.substr(14, 2); break;
+            case FaceDataType.Roll:     valStr = data.substr(16, 1); break;
             case FaceDataType.Smile:    valStr = data.substr(17, 1); break;
             case FaceDataType.Visible:  valStr = data.substr(18, 1); break;
         }
@@ -754,6 +720,7 @@ namespace vibeLamp {
         CounterClockwise,
         Shortest
     }
+
 
     // ======================== 🖥️ OLED DISPLAY 제어 ========================
 
