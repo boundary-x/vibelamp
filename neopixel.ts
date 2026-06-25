@@ -39,9 +39,6 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
-    //% shim=sendBufferAsm
-    function sendBuffer(buf: Buffer, pin: DigitalPin) {
-    }
 
     /**
      * 네오픽셀 스트립 객체
@@ -139,7 +136,8 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            sendBuffer(this.buffer, this.pin);
+            // 하드웨어 에러(070)를 일으키던 구형 어셈블리 대신 CODAL 코어 내장 함수 사용
+            ws2812b.sendBuffer(this.buffer, this.pin);
         }
 
         /**
