@@ -137,7 +137,11 @@ namespace vibeLamp {
         //% weight=80 blockGap=8
         show() {
             // 하드웨어 에러(070)를 일으키던 구형 어셈블리 대신 CODAL 코어 내장 함수 사용
-            ws2812b.sendBuffer(this.buffer, this.pin);
+            let dummy = neopixel.create(this.pin, this._length, this.mode as number);
+            dummy.buf = this.buffer;
+            dummy.brightness = this.brightness;
+            dummy.start = this.start;
+            dummy.show();
         }
 
         /**
