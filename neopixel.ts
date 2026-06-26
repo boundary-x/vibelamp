@@ -40,7 +40,7 @@ enum NeoPixelMode {
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
 
-    // 🌟 핵심 해결책: 에러를 내던 구형 어셈블리 대신, 코어 시스템에 내장된 안전한 구동기로 직접 연결
+ 
     //% shim=light::sendWS2812Buffer
     function sendBuffer(buf: Buffer, pin: DigitalPin) {
     }
@@ -874,12 +874,29 @@ namespace vibeLamp {
                 line += 2;
             }
         } else {
-            // 글자 데이터를 screen 버퍼에만 기록 (I2C 즉시 전송 안 함)
-            // printString/showString 완료 후 draw(1)에서 한 번에 전송
+            let j = 0;
             for (let i = 0; i < 5; i++) {
                 screen[index + i] = (color > 0) ? FONT_5X7[position + i] : FONT_5X7[position + i] ^ 0xFF;
+                if (zoomEnabled) {
+                    buffer13[j + 1] = screen[index + i];
+                    buffer13[j + 2] = screen[index + i];
+                } else {
+                    buffer7[i + 1] = screen[index + i];
+                }
+                j += 2;
             }
             screen[index + 5] = (color > 0) ? 0 : 0xFF;
+            if (zoomEnabled) {
+                buffer13[12] = screen[index + 5];
+            } else {
+                buffer7[6] = screen[index + 5];
+            }
+            setPosition(column, row);
+            if (zoomEnabled) {
+                pins.i2cWriteBuffer(i2cAddress, buffer13);
+            } else {
+                pins.i2cWriteBuffer(i2cAddress, buffer7);
+            }
         }
     }
 
@@ -926,7 +943,7 @@ namespace vibeLamp {
             if (cursorX > 120) scroll();
         }
         if (newline) scroll();
-        draw(1);  // 모든 글자 버퍼링 완료 후 한 번만 I2C 전송
+        if (doubleSize) draw(1);
     }
 
     function scroll() {
