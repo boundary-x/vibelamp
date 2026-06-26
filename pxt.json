@@ -2,8 +2,7 @@
     "name": "vibelamp",
     "version": "0.6.16",
     "dependencies": {
-        "core": "*",
-        "ws2812b": "*"
+        "core": "*"
     },
     "files": [
         "README.md",
