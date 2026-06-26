@@ -39,9 +39,7 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
-
- 
-    //% shim=light::sendWS2812Buffer
+    //% shim=sendBufferAsm
     function sendBuffer(buf: Buffer, pin: DigitalPin) {
     }
 
@@ -141,8 +139,6 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            // BLE SoftDevice에 처리 시간 양보 후 전송 (070 에러 방지)
-            basic.pause(1);
             sendBuffer(this.buffer, this.pin);
         }
 
@@ -417,8 +413,8 @@ namespace vibeLamp {
     //% weight=100 blockGap=8
     //% trackArgs=0,2
     //% blockSetVariable=strip
-    //% pin.defl=DigitalPin.P8
-    //% numLeds.defl=12
+    //% pin.defl=DigitalPin.P0
+    //% numLeds.defl=8
     export function create(pin: DigitalPin, numLeds: number, mode: NeoPixelMode): Strip {
         let strip = new Strip();
         let stride = mode === NeoPixelMode.RGBW ? 4 : 3;
@@ -429,9 +425,6 @@ namespace vibeLamp {
         strip.matrixWidth = 0;
         strip.setBrightness(128);
         strip.setPin(pin);
-        // BLE 초기화 이후, create() 시점에 OLED 초기화
-        // (네임스페이스 로드 시 자동실행 대신 여기서 한 번 실행)
-        initOLED();
         return strip;
     }
 
@@ -929,6 +922,17 @@ namespace vibeLamp {
         showString(number.toString(), column, row, color);
     }
 
+    function scroll() {
+        cursorX = 0;
+        cursorY += doubleSize ? 2 : 1;
+        if (cursorY > 7) {
+            cursorY = 7;
+            screen.shift(128);
+            screen[0] = 0x40;
+            draw(1);
+        }
+    }
+
     //% block="문장 출력 - 내용: %text, 줄바꿈: %newline"
     //% text.defl="VIBE LAMP"
     //% newline.defl=true
@@ -944,17 +948,6 @@ namespace vibeLamp {
         }
         if (newline) scroll();
         if (doubleSize) draw(1);
-    }
-
-    function scroll() {
-        cursorX = 0;
-        cursorY += doubleSize ? 2 : 1;
-        if (cursorY > 7) {
-            cursorY = 7;
-            screen.shift(128);
-            screen[0] = 0x40;
-            draw(1);
-        }
     }
 
     //% block="숫자 출력 - 내용: %number, 줄바꿈: %newline"
@@ -1047,4 +1040,7 @@ namespace vibeLamp {
         sendCommand1(0xAF);       // SSD1306_DISPLAYON
         clear();
     }
+
+    // 네임스페이스 로드 시 OLED 최초 실행
+    initOLED();
 }
