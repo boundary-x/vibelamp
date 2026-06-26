@@ -39,6 +39,9 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
+    //% shim=light::sendWS2812Buffer
+    function sendBuffer(buf: Buffer, pin: DigitalPin) {
+    }
 
     /**
      * 네오픽셀 스트립 객체
@@ -136,7 +139,7 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            ws2812b.sendBuffer(this.buffer, this.pin);
+            sendBuffer(this.buffer, this.pin);
         }
 
         /**
