@@ -39,6 +39,8 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
+
+    // V2 내장 안전 드라이버 연결 (070 에러 방지용)
     //% shim=light::sendWS2812Buffer
     function sendBuffer(buf: Buffer, pin: DigitalPin) {
     }
@@ -56,8 +58,7 @@ namespace vibeLamp {
         matrixWidth: number;
         matrixChain: number;
         matrixRotation: number;
-
-        _isShowing: boolean;
+        _isDirty: boolean;   // 그리기 상태 체크 플래그
 
         // ======================== 라이트 제어(기초) ========================
 
@@ -127,6 +128,7 @@ namespace vibeLamp {
             strip._length = Math.clamp(0, this._length - (strip.start - this.start), length);
             strip.matrixWidth = 0;
             strip.mode = this.mode;
+            strip._isDirty = false;
             return strip;
         }
 
@@ -141,15 +143,12 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            // 👇 이미 그리기 작업이 큐에 대기 중이면 중복 실행을 막아 070 에러를 방지합니다.
-            if (this._isShowing) return;
-            
-            this._isShowing = true;
-            
-            // 👇 블루투스 인터럽트가 끝난 직후 안전한 백그라운드(순서)에서 라이트를 켭니다.
+            // 중복 실행 및 통신 병목 현상을 막기 위한 비동기 처리
+            if (this._isDirty) return;
+            this._isDirty = true;
             control.inBackground(() => {
                 sendBuffer(this.buffer, this.pin);
-                this._isShowing = false;
+                this._isDirty = false;
             });
         }
 
@@ -436,7 +435,7 @@ namespace vibeLamp {
         strip.matrixWidth = 0;
         strip.setBrightness(128);
         strip.setPin(pin);
-        strip._isShowing = false;
+        strip._isDirty = false;
         return strip;
     }
 
@@ -763,6 +762,7 @@ namespace vibeLamp {
     let cursorY = 0;
     let zoomEnabled = 0;
     let doubleSize = 0;
+    let _oledDirty = false; // OLED 그리기 상태 플래그 추가
 
     function sendCommand1(data: number) {
         let number = data % 256;
@@ -797,8 +797,7 @@ namespace vibeLamp {
 
     function draw(data: number) {
         if (data > 0) {
-            setPosition();
-            pins.i2cWriteBuffer(i2cAddress, screen);
+            _oledDirty = true; // 실제 I2C 통신을 하지 않고 그리기 플래그만 활성화
         }
     }
 
@@ -847,6 +846,7 @@ namespace vibeLamp {
         let index = x + page * 128 + 1;
         let byte = (color) ? (screen[index] | (1 << shiftPage)) : clearBit(screen[index], shiftPage);
         screen[index] = byte;
+        _oledDirty = true; // 픽셀 업데이트 시 플래그 켜기
     }
 
     function drawChar(character: string, column: number, row: number, color: number = 1) {
@@ -879,29 +879,12 @@ namespace vibeLamp {
                 line += 2;
             }
         } else {
-            let j = 0;
+            // 통신 딜레이를 일으키던 I2C Write 부분을 지우고 화면 메모리(screen)만 바로 업데이트
             for (let i = 0; i < 5; i++) {
                 screen[index + i] = (color > 0) ? FONT_5X7[position + i] : FONT_5X7[position + i] ^ 0xFF;
-                if (zoomEnabled) {
-                    buffer13[j + 1] = screen[index + i];
-                    buffer13[j + 2] = screen[index + i];
-                } else {
-                    buffer7[i + 1] = screen[index + i];
-                }
-                j += 2;
             }
             screen[index + 5] = (color > 0) ? 0 : 0xFF;
-            if (zoomEnabled) {
-                buffer13[12] = screen[index + 5];
-            } else {
-                buffer7[6] = screen[index + 5];
-            }
-            setPosition(column, row);
-            if (zoomEnabled) {
-                pins.i2cWriteBuffer(i2cAddress, buffer13);
-            } else {
-                pins.i2cWriteBuffer(i2cAddress, buffer7);
-            }
+            _oledDirty = true; 
         }
     }
 
@@ -1051,6 +1034,18 @@ namespace vibeLamp {
         sendCommand2(0xD6, 0);    // zoom off
         sendCommand1(0xAF);       // SSD1306_DISPLAYON
         clear();
+
+        
+        control.inBackground(function () {
+            while (true) {
+                if (_oledDirty) {
+                    _oledDirty = false;
+                    setPosition();
+                    pins.i2cWriteBuffer(i2cAddress, screen);
+                }
+                basic.pause(50); 
+            }
+        });
     }
 
     // 네임스페이스 로드 시 OLED 최초 실행
