@@ -141,7 +141,8 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            // 시스템 내부에 숨겨진 마이크로비트 V2 완벽 호환 구동기를 호출
+            // BLE SoftDevice에 처리 시간 양보 후 전송 (070 에러 방지)
+            basic.pause(1);
             sendBuffer(this.buffer, this.pin);
         }
 
@@ -428,6 +429,9 @@ namespace vibeLamp {
         strip.matrixWidth = 0;
         strip.setBrightness(128);
         strip.setPin(pin);
+        // BLE 초기화 이후, create() 시점에 OLED 초기화
+        // (네임스페이스 로드 시 자동실행 대신 여기서 한 번 실행)
+        initOLED();
         return strip;
     }
 
@@ -870,29 +874,12 @@ namespace vibeLamp {
                 line += 2;
             }
         } else {
-            let j = 0;
+            // 글자 데이터를 screen 버퍼에만 기록 (I2C 즉시 전송 안 함)
+            // printString/showString 완료 후 draw(1)에서 한 번에 전송
             for (let i = 0; i < 5; i++) {
                 screen[index + i] = (color > 0) ? FONT_5X7[position + i] : FONT_5X7[position + i] ^ 0xFF;
-                if (zoomEnabled) {
-                    buffer13[j + 1] = screen[index + i];
-                    buffer13[j + 2] = screen[index + i];
-                } else {
-                    buffer7[i + 1] = screen[index + i];
-                }
-                j += 2;
             }
             screen[index + 5] = (color > 0) ? 0 : 0xFF;
-            if (zoomEnabled) {
-                buffer13[12] = screen[index + 5];
-            } else {
-                buffer7[6] = screen[index + 5];
-            }
-            setPosition(column, row);
-            if (zoomEnabled) {
-                pins.i2cWriteBuffer(i2cAddress, buffer13);
-            } else {
-                pins.i2cWriteBuffer(i2cAddress, buffer7);
-            }
         }
     }
 
@@ -939,7 +926,7 @@ namespace vibeLamp {
             if (cursorX > 120) scroll();
         }
         if (newline) scroll();
-        if (doubleSize) draw(1);
+        draw(1);  // 모든 글자 버퍼링 완료 후 한 번만 I2C 전송
     }
 
     function scroll() {
@@ -1043,7 +1030,4 @@ namespace vibeLamp {
         sendCommand1(0xAF);       // SSD1306_DISPLAYON
         clear();
     }
-
-    // 네임스페이스 로드 시 OLED 최초 실행
-    initOLED();
 }
