@@ -9,6 +9,7 @@
     "files": [
         "README.md",
         "neopixel.ts",
+        "sendBuffer.asm",
         "_locales/ja/neopixel-strings.json",
         "_locales/zh-cn/neopixel-strings.json",
         "_locales/zh-tw/neopixel-strings.json",
