@@ -39,9 +39,6 @@ enum NeoPixelMode {
  */
 //% weight=5 color=#58ACFA icon="\uf005" block="VIBE LAMP"
 namespace vibeLamp {
-    //% shim=sendBufferAsm
-    function sendBuffer(buf: Buffer, pin: DigitalPin) {
-    }
 
     /**
      * 네오픽셀 스트립 객체
@@ -139,7 +136,7 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            sendBuffer(this.buffer, this.pin);
+            ws2812b.sendBuffer(this.buffer, this.pin);
         }
 
         /**
@@ -413,8 +410,8 @@ namespace vibeLamp {
     //% weight=100 blockGap=8
     //% trackArgs=0,2
     //% blockSetVariable=strip
-    //% pin.defl=DigitalPin.P0
-    //% numLeds.defl=8
+    //% pin.defl=DigitalPin.P8
+    //% numLeds.defl=12
     export function create(pin: DigitalPin, numLeds: number, mode: NeoPixelMode): Strip {
         let strip = new Strip();
         let stride = mode === NeoPixelMode.RGBW ? 4 : 3;
