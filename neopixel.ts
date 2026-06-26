@@ -57,6 +57,8 @@ namespace vibeLamp {
         matrixChain: number;
         matrixRotation: number;
 
+        _isShowing: boolean;
+
         // ======================== 라이트 제어(기초) ========================
 
         /**
@@ -139,7 +141,16 @@ namespace vibeLamp {
         //% group="라이트 제어(심화)"
         //% weight=80 blockGap=8
         show() {
-            sendBuffer(this.buffer, this.pin);
+            // 👇 이미 그리기 작업이 큐에 대기 중이면 중복 실행을 막아 070 에러를 방지합니다.
+            if (this._isShowing) return;
+            
+            this._isShowing = true;
+            
+            // 👇 블루투스 인터럽트가 끝난 직후 안전한 백그라운드(순서)에서 라이트를 켭니다.
+            control.inBackground(() => {
+                sendBuffer(this.buffer, this.pin);
+                this._isShowing = false;
+            });
         }
 
         /**
@@ -425,6 +436,7 @@ namespace vibeLamp {
         strip.matrixWidth = 0;
         strip.setBrightness(128);
         strip.setPin(pin);
+        strip._isShowing = false;
         return strip;
     }
 
